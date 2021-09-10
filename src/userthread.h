@@ -36,10 +36,9 @@ typedef struct dthread
 {
 	int tid;
 	joinstate state;
-	sigjmp_buf context;//
-	// Env Environment; //processor context area
-	char *stack;	
-	void *(start_routine)(void *);
+	sigjmp_buf context;
+	void *stack; //after longjump stackframe given by system becomes invalid hence we allocate separate stack frame for process	
+	void *(*start_routine)(void *);//pointer to the function whose input is void* and output is void*
 	long long int sleep_time;		//time to sleep in microseconds
 	//long previous_time;			//to remember last reduction time
 	int wait_no;         			//no of semaphores for which thread is waiting
@@ -49,14 +48,13 @@ typedef struct dthread
 	void * retval;					//return value stored in jmpbuf
 	int signal;
 }TCB;
+
+
 void mythread_attr_init(void *args);
-int mythread_create(unsigned long int *thread, void *(*start_routine) (void *), void *args);
+int  mythread_create(unsigned long int *thread, void *(*start_routine) (void *), void *args);
 void mythread_exit(void *retval);
-int mythread_cancel(unsigned long int thread, int signal);
-int mythread_pthread_self(void);
-int dthread_join(unsigned long int thread, void **retval);
-int dthread_kill(unsigned long int thread, int sig);
-void dthread_cleanup(void);
+int  mythread_cancel(unsigned long int thread, int signal);
+int  mythread_pthread_self(void);
 void mythread_yeild(void );
 int mythread_join(unsigned long int, void **returnvalues);
 int mythread_switch();

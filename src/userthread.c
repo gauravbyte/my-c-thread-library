@@ -31,3 +31,26 @@ void mythread_init(void) {
   start_timer(&timer);
 }
 mythread_t mythread_gettid() { return td_cur->tid; }
+int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
+                    void *args) {
+
+  struct mythread *t;
+  t = (mythread *)malloc(sizeof(mythread));
+
+  t->tid = tid_count++;
+  t->args = args;
+  t->status = READY;
+  t->start_routine = start_routine;
+  t->signal = -1;
+  t->state = JOINREADY;
+
+  // allocate the memory for stack with mmap
+
+  t->stack = mmap(NULL, THREAD_STACK_SIZE, PROT_READ | PROT_WRITE,
+                  MAP_PRIVATE | MAP_ANONYMOUS | MAP_STACK, -1, 0);
+
+  if (t->stack == MAP_FAILED) {
+    start_timer(&timer);
+    printf("Insufficient res");
+    return EAGAIN; // insufficient resources
+  }
