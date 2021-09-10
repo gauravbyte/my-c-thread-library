@@ -1,19 +1,19 @@
 
-# Includes the project configurations
-include project.conf
+# # Includes the project configurations
+# include project.conf
 
-#
-# Validating project variables defined in project.conf
-#
-ifndef PROJECT_NAME
-$(error Missing PROJECT_NAME. Put variables at project.conf file)
-endif
-ifndef BINARY
-$(error Missing BINARY. Put variables at project.conf file)
-endif
-ifndef PROJECT_PATH
-$(error Missing PROJECT_PATH. Put variables at project.conf file)
-endif
+# #
+# # Validating project variables defined in project.conf
+# #
+# ifndef PROJECT_NAME
+# $(error Missing PROJECT_NAME. Put variables at project.conf file)
+# endif
+# ifndef BINARY
+# $(error Missing BINARY. Put variables at project.conf file)
+# endif
+# ifndef PROJECT_PATH
+# $(error Missing PROJECT_PATH. Put variables at project.conf file)
+# endif
 
 
 # Gets the Operating system name
@@ -65,7 +65,7 @@ WARNS := -Wall -Wextra -pedantic # -pedantic warns on language standards
 CFLAGS := -O3 $(STD) $(STACK) $(WARNS)
 
 # Debug options
-DEBUG := -g3 -DDEBUG=1
+DEBUG := #	-g3 -DDEBUG=1
 
 # Dependency libraries
 LIBS := # -lm  -I some/path/to/library
@@ -104,15 +104,15 @@ help:
 	@echo "    help     - Prints a help message with target rules"
 
 # Starts a new project using C project template
-start:
-	@echo "Creating project: $(PROJECT_NAME)"
-	@mkdir -pv $(PROJECT_PATH)
-	@echo "Copying files from template to new directory:"
-	@cp -rvf ./* $(PROJECT_PATH)/
-	@echo
-	@echo "Go to $(PROJECT_PATH) and compile your project: make"
-	@echo "Then execute it: bin/$(BINARY) --help"
-	@echo "Happy hacking o/"
+# start:
+# 	@echo "Creating project: $(PROJECT_NAME)"
+# 	@mkdir -pv $(PROJECT_PATH)
+# 	@echo "Copying files from template to new directory:"
+# 	@cp -rvf ./* $(PROJECT_PATH)/
+# 	@echo
+# 	@echo "Go to $(PROJECT_PATH) and compile your project: make"
+# 	@echo "Then execute it: bin/$(BINARY) --help"
+# 	@echo "Happy hacking o/"
 
 
 # Rule for link and generate the binary file
@@ -128,16 +128,6 @@ $(LIBDIR)/%.o: $(SRCDIR)/%.$(SRCEXT)
 	@echo -en "$(BROWN)CC $(END_COLOR)";
 	$(CC) -c $^ -o $@ $(DEBUG) $(CFLAGS) $(LIBS)
 
-
-# Rule for run valgrind tool
-valgrind:
-	valgrind \
-		--track-origins=yes \
-		--leak-check=full \
-		--leak-resolution=high \
-		--log-file=$(LOGDIR)/$@.log \
-		$(BINDIR)/$(BINARY)
-	@echo -en "\nCheck the log file: $(LOGDIR)/$@.log\n"
 
 
 # Compile tests and run the test binary
