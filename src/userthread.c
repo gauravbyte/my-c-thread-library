@@ -54,3 +54,49 @@ int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
     printf("Insufficient res");
     return EAGAIN; // insufficient resources
   }
+
+
+  int mythread_join(mythread_t thread, void **retval) {
+
+  // find the node having that particular thread id
+
+  mythread *temp;
+  if (thread == td_cur->tid) {
+    return EDEADLK;
+  }
+  temp = get_node_by_tid(threads, thread);
+  if (temp == NULL) {
+    return ESRCH;
+  }
+
+  // check if the thread is already joined or not
+  if (temp->state == JOINED) {
+    return EINVAL;
+  }
+  temp->state = JOINED;
+
+  // othewise loop until the process is terminated
+  while (1) {
+    if (temp->status == TERMINATED) {
+      break;
+    }
+  }
+  // updating the retval  with the routine return value
+  if (retval) {
+    *retval = temp->retval;
+  }
+  return 0;
+}
+void mythread_exit(void *retval) {
+  // changing the retval for the current running thread.
+  td_cur->retval = retval;
+  td_cur->status = TERMINATED;
+
+  // raising the signal to call the mythread_switch
+  raise(SIGVTALRM);
+}
+
+
+
+ 
+
