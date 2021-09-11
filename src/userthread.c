@@ -95,7 +95,36 @@ void mythread_exit(void *retval) {
   // raising the signal to call the mythread_switch
   raise(SIGVTALRM);
 }
+int mythread_kill(mythread_t thread, int sig) {
+  // no signal
+  if (sig == 0) {
+    return 0;
+  }
+  // invalid signal
+  if (sig < 0 || sig > 64) {
+    return EINVAL;
+  }
 
+  // check if current thread id is same as the thread passed
+
+  int status = -1;
+  if (thread == td_cur->tid) {
+    status = raise(sig);
+  }
+
+  // otherwise store it into the thread structure to raise it later
+  else {
+    mythread *temp = get_node_by_tid(threads, thread);
+    if (temp != NULL) {
+      temp->signal = sig;
+      status = 0;
+    } else {
+      status = ESRCH;
+    }
+  }
+
+  return status;
+}
 
 
  
