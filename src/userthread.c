@@ -159,3 +159,57 @@ int mythread_kill(mythread_t thread, int sig) {
 
  
 
+void init_threads(queue *t) {
+  t->head = NULL;
+  t->tail = NULL;
+  t->count = 0;
+}
+
+void enqueue(queue *t, mythread *td) {
+  node *ptr = (node *)malloc(sizeof(node));
+  // assigning the new node details
+  ptr->td = td;
+  ptr->next = NULL;
+  // checking if the queue is empty, if empty head and tail points to ptr
+  if (t->count == 0) {
+    t->head = t->tail = ptr;
+  }
+
+  // otherwise append the node to last changing the tail pointer to ptr
+  else {
+    t->tail->next = ptr;
+    t->tail = ptr;
+  }
+  // increment the count
+  t->count = t->count + 1;
+  return;
+}
+
+mythread *dequeue(queue *t) {
+  // check if the queue is empty
+  if (t->count == 0) {
+    return NULL;
+  }
+  mythread *td = t->head->td;
+  t->head = t->head->next;
+  t->count = t->count - 1;
+  // check if the new head is null or not , if yes then change the tail
+  if (t->head == NULL) {
+    t->tail = NULL;
+  }
+  return (td);
+}
+
+void show(queue *t) {
+  node *ptr;
+  if (t->head == NULL) {
+    printf("\nEmpty");
+    return;
+  }
+  ptr = t->head;
+  while (ptr != NULL) {
+    printf("\nTID: %ld", ptr->td->tid);
+    ptr = ptr->next;
+  }
+  printf("\nTOTAL: %d", t->count);
+}
