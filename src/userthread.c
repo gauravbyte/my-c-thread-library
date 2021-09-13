@@ -2,6 +2,36 @@
 #include "userthread.h"
 #include "fifo.h"
 
+/*
+*   glibc uses ptrmangle function to jmpbuf values for newer gcc
+    so ptrmangle function helps to
+    Because there is one herePointer encryption Features!
+     GlibcPTR_MANGLE ! The value in the jmp_buf dumped
+    is actually an over-valued value, not the original value.
+    ptrmangle function helps us to get around that
+*   https://programmersought.com/article/41611348414/
+*/
+
+static long int PTR_MANGLE(long int p) {
+  long int ret;
+  // assembly code
+  asm(" mov %1, %%rax;\n"
+      " xor %%fs:0x30, %%rax;"
+      " rol $0x11, %%rax;"
+      " mov %%rax, %0;"
+      : "=r"(ret)
+      : "r"(p)
+      : "%rax");
+  return ret;
+}
+
+static long int PTR_DEMANGLE(long int var) {
+  asm("ror $0x11, %0\n"
+      "xor %%fs:0x30, %0"
+      : "=r"(var)
+      : "0"(var));
+  return var;
+}
 void mythread_init(void) {
   threads = (queue *)malloc(sizeof(queue));
   td_cur = (mythread *)malloc(sizeof(mythread));
