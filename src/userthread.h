@@ -1,63 +1,85 @@
-#ifndef _USER_THREAD_H_
-#define _USER_THREAD_H_
+#ifndef _USER_LEVEL_THREAD_
+#define _USER_LEVEL_THREAD_
 
-#include<setjmp.h>
-#include<stdio.h>
-#include<signal.h>
-#include<sys/time.h>
-#include<string.h>
-#include<sys/mman.h>
+#include <assert.h>
+#include <errno.h>
+#include <setjmp.h>
+#include <signal.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/mman.h> //for mmap function
+#include <sys/time.h>
+#include <time.h>
+#include <unistd.h>
+#define THREAD_STACK_SIZE (1024 * 64)
 
-/* 
-myThread_create (thread,attr,start_routine,arg)
-myThread_exit (status)
-myThread_cancel (thread)
-myThread_attr_init (attr)
-myThread_attr_destroy (attr)
-myThread_t pthread_self(void);3
-myThread_yield(void)
-myThread_join(int tid)
- */
-
-typedef enum 
-{
-	running,
-	ready,
-	blocked,
-	terminated,
-}thread_state;
-
-typedef enum
-{
-	waiting,readytojoin,joined
-}joinstate;
-
-typedef struct dthread
-{
-	int tid;
-	joinstate state;
-	sigjmp_buf context;
-	void *stack; //after longjump stackframe given by system becomes invalid hence we allocate separate stack frame for process	
-	void *(*start_routine)(void *);//pointer to the function whose input is void* and output is void*
-	long long int sleep_time;		//time to sleep in microseconds
-	//long previous_time;			//to remember last reduction time
-	int wait_no;         			//no of semaphores for which thread is waiting
-	int argc;
-	char **argv; 					//arguments list passed to a thread
-	void * args;   	 				//arguments passed to the thread;
-	void * retval;					//return value stored in jmpbuf
-	int signal;
-}TCB;
+#define JOINREADY 1
+#define JOINED 2
+#define READY 1
+#define RUNNING 2
+#define TERMINATED 3
+// SIGVTALRM is raised after every 50 msec
+#define ALARM 50000
 
 
-void mythread_attr_init(void *args);
-int  mythread_create(unsigned long int *thread, void *(*start_routine) (void *), void *args);
+typedef unsigned long int mythread_t;
+typedef unsigned int mythread_spinlock_t;
+typedef unsigned int mythread_mutex_t;
+
+typedef struct mythread {
+  mythread_t tid;
+  int state;   // JOINREADY, joined
+  int status;  // ready, running,terminated,
+  char *stack; // stack_base address
+  void *(*start_routine)(void *);
+  void *args;
+  void *retval;
+  sigjmp_buf context;
+  int signal;
+} mythread;
+
+void fn(void);
+void mythread_switch();
+void start_timer(struct itimerval *timer);
+void stop_timer(struct itimerval *timer);
+
+void mythread_init(void);
+int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
+                    void *args);
 void mythread_exit(void *retval);
-int  mythread_cancel(unsigned long int thread, int signal);
-int  mythread_pthread_self(void);
-void mythread_yeild(void );
-int mythread_join(unsigned long int, void **returnvalues);
-int mythread_switch();
+int mythread_join(mythread_t thread, void **retval);
+int mythread_kill(mythread_t thread, int sig);
+void mythread_cleanup(void);
+void mythread_yield();
 
+// temp function for debugging
+void show1();
+
+// spin lock
+int mythread_spin_init(mythread_spinlock_t *lock);
+int mythread_spin_lock(mythread_spinlock_t *lock);
+int mythread_spin_trylock(mythread_spinlock_t *lock);
+int mythread_spin_unlock(mythread_spinlock_t *lock);
+typedef struct node {
+
+  mythread *td;
+  struct node *next;
+
+} node;
+double calculateTime();
+typedef struct queue {
+
+  struct node *head;
+  struct node *tail;
+  int count;
+
+} queue;
+
+void init_threads(queue *t);
+void enqueue(queue *t, mythread *td);
+mythread *dequeue(queue *t);
+void show(queue *t);
+mythread *get_node_by_tid(queue *t, mythread_t tid);
 
 #endif

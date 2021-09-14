@@ -1,6 +1,11 @@
-
 #include "userthread.h"
-#include "fifo.h"
+
+/* variables that can be accessed from all threads */
+
+static queue *threads;           // list of all the threads
+static mythread *td_cur;         // detials of thread which is running
+struct itimerval timer;          // for gettimer and settimer function input
+static mythread_t tid_count = 0; // to assign thread id values
 
 /*
 *   glibc uses ptrmangle function to jmpbuf values for newer gcc
@@ -32,6 +37,14 @@ static long int PTR_DEMANGLE(long int var) {
       : "0"(var));
   return var;
 }
+
+/*
+ *   Init function: before using any of the other methods user has to call this
+ * method It initializes the global threads list and signal. Initializes the
+ * main thread details Timer is started for raising sigvtalrm signal which
+ * further will call mythread_switch
+ */
+
 void mythread_init(void) {
   threads = (queue *)malloc(sizeof(queue));
   td_cur = (mythread *)malloc(sizeof(mythread));
@@ -61,6 +74,121 @@ void mythread_init(void) {
   start_timer(&timer);
 }
 mythread_t mythread_gettid() { return td_cur->tid; }
+
+/*
+ *   This method is used to clean all the threads before exiting
+ */
+
+void mythread_cleanup() {
+  mythread *td;
+  int count = threads->count;
+  for (int i = 0; i < count; i++) {
+    td = dequeue(threads);
+    free(td);
+  }
+  // final threads remove
+  free(threads);
+}
+
+void mythread_yield() {
+  // mythread_switch();
+  raise(SIGVTALRM);
+}
+/*
+ *   Wrapper function to run different thread routines based on current thread
+ * details
+ */
+
+void fn(void) {
+  td_cur->retval = td_cur->start_routine(td_cur->args);
+  td_cur->status = TERMINATED;
+  raise(SIGVTALRM);
+  return;
+}
+
+/*
+ *   Whenever sigvtalrm is raised mythread_switch is called,
+ *   here current running thread thread is enqueued,
+ *   and is replaced by new thread details, which is not terminated
+ *   If no such valid threads found in the queue, program exits
+ *   Before jumping to the thread context,
+ *       we check if the thread has any signals to be raised
+ */
+
+void mythread_switch(int sig) {
+  stop_timer(&timer);
+  mythread_t temp_tid = td_cur->tid;
+  if (sigsetjmp(td_cur->context, 1) == 1) {
+    return;
+  }
+
+  enqueue(threads, td_cur);
+  if (td_cur->status == RUNNING) {
+    td_cur->status = READY;
+  }
+
+  // getting the next thread details:
+  // in loop, to check if the thread is already terminated or not
+  mythread *temp;
+  int threads_count = threads->count;
+  for (int i = 0; i < threads_count; i++) {
+    if (td_cur->status == RUNNING) {
+      td_cur->status = READY;
+    }
+
+    temp = dequeue(threads);
+    if (temp->status == READY) {
+      td_cur = temp;
+      td_cur->status = RUNNING;
+      break;
+    } else if (temp->status == TERMINATED) {
+      enqueue(threads, temp);
+    }
+  }
+  if (td_cur->tid == temp_tid) {
+    exit(0);
+  }
+  if (td_cur->signal != -1) {
+    raise(td_cur->signal);
+    td_cur->signal = -1;
+  }
+
+  start_timer(&timer);
+  siglongjmp(td_cur->context, 1);
+}
+
+/*
+ *   Starting the timer
+ */
+
+void start_timer(struct itimerval *timer) {
+  timer->it_value.tv_sec = 0;
+  timer->it_value.tv_usec = ALARM;
+  timer->it_interval.tv_sec = 0;
+  timer->it_interval.tv_usec = ALARM;
+  setitimer(ITIMER_VIRTUAL, timer, 0);
+}
+
+/*
+ *   Stopping the timer, which means now no more sigvtalrm is raised
+ */
+
+void stop_timer(struct itimerval *timer) {
+  timer->it_value.tv_sec = 0;
+  timer->it_value.tv_usec = 0;
+  timer->it_interval.tv_sec = 0;
+  timer->it_interval.tv_usec = 0;
+  setitimer(ITIMER_VIRTUAL, timer, 0);
+}
+
+/*
+ *   For thread stack allocation mmap() is used
+ *   mythread_t thread value is changed with respective tid for user side
+ *   Saving the threads context
+ *   Changing the stack,base pointer and program counter for that thread
+ *   Adding it to the threads list
+ */
+
 int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
                     void *args) {
 
@@ -85,8 +213,31 @@ int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
     return EAGAIN; // insufficient resources
   }
 
+  // assigning the thread with the tid
+  *thread = t->tid;
 
-  int mythread_join(mythread_t thread, void **retval) {
+  // saving the context and changing the stack pointer, base pointer and program
+  // counter
+  sigsetjmp(t->context, 1);
+  t->context[0].__jmpbuf[6] =
+      PTR_MANGLE((long int)t->stack + THREAD_STACK_SIZE - sizeof(long int));
+  t->context[0].__jmpbuf[1] =
+      PTR_MANGLE((long int)t->stack + THREAD_STACK_SIZE - sizeof(long int));
+  t->context[0].__jmpbuf[7] = PTR_MANGLE((long int)fn);
+  // printf("%p", t->context);
+
+  enqueue(threads, t);
+
+  return 0;
+}
+
+/*
+ *   All error checks are done before waiting for the thread specified to
+ * terminate while() with some condition is used for waiting purpose retval
+ * passed as argument is modified by the actual retval of the thread
+ */
+
+int mythread_join(mythread_t thread, void **retval) {
 
   // find the node having that particular thread id
 
@@ -117,6 +268,12 @@ int mythread_create(mythread_t *thread, void *(*start_routine)(void *),
   }
   return 0;
 }
+
+/*
+ *   Status is changed and retval is updated, also sigvtalrm is raised to get
+ * the new thread
+ */
+
 void mythread_exit(void *retval) {
   // changing the retval for the current running thread.
   td_cur->retval = retval;
@@ -125,6 +282,14 @@ void mythread_exit(void *retval) {
   // raising the signal to call the mythread_switch
   raise(SIGVTALRM);
 }
+
+/*
+ *   error checking is done
+ *   see if it the thread id passed is of the current running thread
+ *   if yes then raise signal, otherwise append it to the threads structure, to
+ * raise it later
+ */
+
 int mythread_kill(mythread_t thread, int sig) {
   // no signal
   if (sig == 0) {
@@ -155,6 +320,7 @@ int mythread_kill(mythread_t thread, int sig) {
 
   return status;
 }
+
 /*
  *   Spin lock is implemeted with the help of __sync_lock_test_and_set
  *   and __sync_lock_release methods
@@ -184,6 +350,15 @@ int mythread_spin_unlock(mythread_spinlock_t *lock) {
   }
   return EINVAL;
 }
+
+void show1() { show(threads); }
+
+void init_threads(queue *t) {
+  t->head = NULL;
+  t->tail = NULL;
+  t->count = 0;
+}
+
 void enqueue(queue *t, mythread *td) {
   node *ptr = (node *)malloc(sizeof(node));
   // assigning the new node details
@@ -231,4 +406,22 @@ void show(queue *t) {
     ptr = ptr->next;
   }
   printf("\nTOTAL: %d", t->count);
+}
+
+
+mythread *get_node_by_tid(queue *t, mythread_t tid) {
+  node *temp;
+  mythread *td;
+  if (t->head == NULL) {
+    return NULL;
+  }
+  temp = t->head;
+  while (temp != NULL) {
+    if (tid == temp->td->tid) {
+      return temp->td;
+    } else {
+      temp = temp->next;
+    }
+  }
+  return NULL;
 }
