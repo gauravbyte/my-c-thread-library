@@ -155,16 +155,35 @@ int mythread_kill(mythread_t thread, int sig) {
 
   return status;
 }
+/*
+ *   Spin lock is implemeted with the help of __sync_lock_test_and_set
+ *   and __sync_lock_release methods
+ */
 
-
- 
-
-void init_threads(queue *t) {
-  t->head = NULL;
-  t->tail = NULL;
-  t->count = 0;
+int mythread_spin_init(mythread_spinlock_t *lock) {
+  *lock = 0;
+  return 0;
 }
-
+int mythread_spin_lock(mythread_spinlock_t *lock) {
+  while (__sync_lock_test_and_set(lock, 1))
+    ;
+  return 0;
+}
+// returning EBUSY when lock is being held by other thread
+int mythread_spin_trylock(mythread_spinlock_t *lock) {
+  if (__sync_lock_test_and_set(lock, 1)) {
+    return EBUSY;
+  } else {
+    return 0;
+  }
+}
+int mythread_spin_unlock(mythread_spinlock_t *lock) {
+  if (*lock == 1) {
+    __sync_lock_release(lock, 0);
+    return 0;
+  }
+  return EINVAL;
+}
 void enqueue(queue *t, mythread *td) {
   node *ptr = (node *)malloc(sizeof(node));
   // assigning the new node details
