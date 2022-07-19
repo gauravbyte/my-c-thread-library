@@ -9,8 +9,24 @@
 #define GREEN "\033[0;32;32m"
 #define RED "\033[0;31;31m"
 #define NONE "\033[m"
+// const double micro = 1.0e-6;
+// double GLOBAL_PI = 0.0;
+// double start_time=0, end_time=0,total_time=0;
 long n = 10;
 long matrix_size = 1000;
+const double micro = 1.0e-6;
+double GLOBAL_PI = 0.0;
+double start_time = 0, end_time = 0, total_time = 0;
+double calculateTime() {
+  struct timeval TV;
+  struct timezone TZ;
+  int RC = gettimeofday(&TV, &TZ);
+  if (RC == -1) {
+    printf("Bad call to gettimeofday\n");
+    return (-1);
+  }
+  return (((double)TV.tv_sec) + micro * ((double)TV.tv_usec));
+}
 
 typedef struct {
   int row_start;
@@ -30,13 +46,15 @@ void random_matrix() {
   for (int i = 0; i < matrix_size; i++) {
     for (int j = 0; j < matrix_size; j++) {
       // fscanf(file, "%d", &(t->mat[i][j]));
-      a[i][j] = rand() % 10;
+    //   a[i][j] = rand() % 10;
+    a[i][j]=3;
     }
   }
   for (int i = 0; i < matrix_size; i++) {
     for (int j = 0; j < matrix_size; j++) {
       // fscanf(file, "%d", &(t->mat[i][j]));
-      b[i][j] = rand() % 10;
+    //   b[i][j] = rand() % 10;
+    b[i][j]=3;
     }
   }
 }
@@ -79,7 +97,7 @@ int main(int argc, char *argv[]) {
   if (argc == 3) {
     n = strtol(argv[1], NULL, 10);
     matrix_size = strtol(argv[2], NULL, 10);
-
+    // printf("%ld   n matrix %ld\n", n, matrix_size);
   }
 
   rows args[n];
@@ -87,17 +105,17 @@ int main(int argc, char *argv[]) {
   random_matrix(&a);
   random_matrix(&b);
 
-  int z = 0, d = 0, l = 0;
-  for (z = 0; z < matrix_size; z += 1) {
-    for (d = 0; d < matrix_size; d += 1) {
-      correct_result[z][d] = 0;
-      for (l = 0; l < matrix_size; l++) {
-        correct_result[z][d] = correct_result[z][d] + a[z][l] * b[l][d];
-      }
-      // printf("d = %d\n",d);
-    }
-    // printf("z =    %d\n",z);
-  }
+//   int z = 0, d = 0, l = 0;
+//   for (z = 0; z < matrix_size; z += 1) {
+//     for (d = 0; d < matrix_size; d += 1) {
+//       correct_result[z][d] = 0;
+//       for (l = 0; l < matrix_size; l++) {
+//         correct_result[z][d] = correct_result[z][d] + a[z][l] * b[l][d];
+//       }
+//       // printf("d = %d\n",d);
+//     }
+//     // printf("z =    %d\n",z);
+//   }
 
   mythread_t tid[n];
   mythread_init();
@@ -110,13 +128,15 @@ int main(int argc, char *argv[]) {
     for (i = 0; i < n - 1; i++) {
       args[i].row_start = (i * partition_length);
       args[i].row_end = args[i].row_start + partition_length - 1;
-      printf("%d   rowstart %d   end %d\n", i, args[i].row_start, args[i].row_end);
+    //   printf("%d   rowstart %d   end %d\n", i, args[i].row_start,
+            //  args[i].row_end);
     }
     args[i].row_start = args[i - 1].row_end + 1;
     args[i].row_end = matrix_size - 1;
-    printf("%d   rowstart %d   end %d\n", i, args[i].row_start, args[i].row_end);
+    // printf("%d   rowstart %d   end %d\n", i, args[i].row_start,
+        //    args[i].row_end);
   }
-
+  start_time = calculateTime();
   // creating three different threads
   for (int i = 0; i < n; i++) {
     mythread_create(&tid[i], partial_multiply, &args[i]);
@@ -125,7 +145,9 @@ int main(int argc, char *argv[]) {
   for (int i = 0; i < n; i++) {
     mythread_join(tid[i], NULL);
   }
-  check_result();
-
+  end_time = calculateTime();
+  //   check_result();
+  total_time = end_time - start_time;
+  printf("%ld      %lf", n, total_time);
   return 0;
 }

@@ -77,8 +77,7 @@ int main() {
   mythread_create(&th2, thread2, NULL);
   mythread_create(&th3, thread3, NULL);
   mythread_create(&th4, thread4, NULL);
-  mythread_create(&th5, thread5, NULL);
-  mythread_create(&th6, thread6, NULL);
+
   for (int i = 0; i < 100000000; i++)
     ;
   run = 0;
@@ -86,10 +85,8 @@ int main() {
   mythread_join(th2, NULL);
   mythread_join(th3, NULL);
   mythread_join(th4, NULL);
-  mythread_join(th5,NULL);
-  mythread_join(th6,NULL);
-    
-  if (r == r1 + r2 + r3 + r4+ r5+ r6) {
+
+  if (r == r1 + r2 + r3 + r4) {
     printf(
         GREEN
         "**PASSED**: Spin lock test for race problem between 4 threads\n" NONE);

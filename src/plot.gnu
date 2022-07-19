@@ -1,0 +1,6 @@
+set title "time vs thread execution"
+set xlabel "number of threads"
+set ylabel "time in seconds "
+plot "src/mythread_data.txt" with lines title "mythread"
+replot "src/pthread_data.txt" with lines title "pthread"
+pause -1 "Hit any key to continue"
